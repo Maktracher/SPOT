@@ -31,7 +31,7 @@ class StrategyConfig:
     CHECK_DELAY = 60      # Check the Fear & Greed Index every 60 seconds
 
 
-def read_api_keys(file_path='.gitignore'):
+def read_api_keys(file_path='api_folder/API.txt'):
     if not os.path.exists(file_path):
         sys.exit(f"ERROR: File '{file_path}' not found.")
 
@@ -42,7 +42,7 @@ def read_api_keys(file_path='.gitignore'):
         telegram_api = f.readline().strip()
 
     if not api_key or not api_secret:
-        sys.exit("ERROR: API keys in .gitignore are empty.")
+        sys.exit("ERROR: API keys in API.txt are empty.")
 
     return api_key, api_secret, api_key_coin, telegram_api
 

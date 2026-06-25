@@ -2,16 +2,20 @@ import pandas as pd
 from Config import exchange, Signal, StrategyConfig
 import requests
 
+
 def get_rsi(exchange, symbol="BTC/USDT", timeframe="1h", limit=100):
     ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
-    df = pd.DataFrame(ohlcv, columns=["time", "open", "high", "low", "close", "volume"])
+    df = pd.DataFrame(
+        ohlcv,
+        columns=["time", "open", "high", "low", "close", "volume"]
+    )
     df["close"] = df["close"].astype(float)
 
     delta = df["close"].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
 
-    # Wilder's smoothing (стандартний RSI, alpha = 1/14)
+    # Wilder smoothing (standard RSI, alpha = 1/14)
     roll_up = gain.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
     roll_down = loss.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
 
@@ -22,22 +26,33 @@ def get_rsi(exchange, symbol="BTC/USDT", timeframe="1h", limit=100):
     print(f"RSI = {current_rsi}")
     return current_rsi
 
+
 def get_fgi():
     try:
-        fgi = requests.get("https://api.alternative.me/fng/?limit=1", timeout=5).json()
+        fgi = requests.get(
+            "https://api.alternative.me/fng/?limit=1",
+            timeout=5
+        ).json()
+
         value = int(fgi["data"][0]["value"])
         print(f"FGI = {value}")
         return value
+
     except Exception as e:
-        print(f"FGI недоступний: {e}, використовую нейтральне значення 50")
-        return 50  # HOLD-зона, бот нічого не робить
+        print(f"FGI unavailable: {e}, using neutral value 50")
+        return 50  # HOLD zone, bot does nothing
 
 
 def get_atr(exchange, symbol="BTC/USDT", timeframe="1h", period=14):
     ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=period + 1)
-    df = pd.DataFrame(ohlcv, columns=["time","open","high","low","close","volume"])
+    df = pd.DataFrame(
+        ohlcv,
+        columns=["time", "open", "high", "low", "close", "volume"]
+    )
+
     df["tr"] = (df["high"] - df["low"]).abs()
     atr = df["tr"].rolling(period).mean().iloc[-1]
+
     print(atr)
     return atr
 
@@ -64,5 +79,6 @@ def generate_signal(exchange):
 if __name__ == "__main__":
     value = get_fgi()
     print(value)
+
     rsi = get_rsi(exchange)
     print(rsi)
