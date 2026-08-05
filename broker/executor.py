@@ -82,23 +82,32 @@ class CCXTExecutionBroker:
 
         return placed_order_ids
 
-    def cancel_asset_orders(self, asset: Asset) -> None:
-        order_ids = self._active_orders.get(asset, [])
-        if not order_ids:
-            return
+    def cancel_asset_orders(self, asset: Asset, side: str | None = None) -> None:
+        """
+        Cancels active orders for a specific coin.
+        If 'side' ("buy" or "sell") is specified, it cancels only those orders.
+        """
+        try:
+            open_orders = self._exchange.fetch_open_orders(asset.symbol)
+            if not open_orders:
+                return
 
-        for oid in list(order_ids):
-            try:
-                self._exchange.cancel_order(oid, asset.symbol)
-                msg = f"🚫 Cancelled order {oid} for {asset.symbol}"
-                logger.info(msg)
-                self._notifier.send_message(msg)
-                order_ids.remove(oid)
-            except ccxt.OrderNotFound:
-                if oid in order_ids:
-                    order_ids.remove(oid)
-            except ccxt.BaseError as e:
-                logger.error("Failed to cancel order %s for %s: %s", oid, asset.symbol, e)
+            for order in open_orders:
+                order_side = order.get('side', '').lower()
+
+                # If side is not specified (None) OR matches the target direction
+                if side is None or order_side == side.lower():
+                    self._exchange.cancel_order(order['id'], asset.symbol)
+
+            if side:
+                logger.info("Cancelled all %s orders for %s", side.upper(), asset.symbol)
+            else:
+                logger.info("Cancelled ALL orders for %s", asset.symbol)
+
+        except ccxt.BaseError as e:
+            logger.error("API error while cancelling orders for %s: %s", asset.symbol, e)
+        except Exception as e:
+            logger.exception("Unexpected error while cancelling orders for %s: %s", asset.symbol, e)
 
     def sync_open_orders(self, asset: Asset) -> None:
         try:

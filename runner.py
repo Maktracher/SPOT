@@ -4,7 +4,7 @@ import ccxt
 
 from core.entities import Asset, SignalType
 from data.feed import LiveMarketDataFeed
-from strategy.grid_strategy import MultiAssetGridStrategy
+from strategy import build_default_strategy, MultiAssetGridStrategy
 from portfolio.manager import PortfolioManager
 from broker.executor import CCXTExecutionBroker
 from infrastructure.config import load_api_keys, setup_logging
@@ -21,7 +21,7 @@ class MultiAssetTradingEngine:
             portfolio: PortfolioManager,
             broker: CCXTExecutionBroker,
             notifier: TelegramNotifier,
-            check_interval_seconds: int = 60,
+            check_interval_seconds: int = 120,
             max_allocation_per_asset_usdt: float = 70.0,  # 📌 ДОДАНО: Максимальна сума в $ на одну монету
     ) -> None:
         self._data_feed = data_feed
@@ -46,15 +46,16 @@ class MultiAssetTradingEngine:
                 ohlcv_df = self._data_feed.get_ohlcv(asset, timeframe="1h", limit=100)
                 signal = self._strategy.analyze(asset, ohlcv_df, fgi)
 
-                # 📌 ДОДАНО: Рахуємо, скільки грошей (в USDT) вже вкладено в цю монету
                 base_balance = self._broker.fetch_balance(asset.base_currency)
                 # total = free (просто лежать) + used (заблоковані у SELL ордерах)
                 total_base_coins = base_balance.free + base_balance.used
                 position_value_usdt = total_base_coins * signal.current_price
 
+                # 📌 ОНОВЛЕНО: Додано відображення Score (балів стратегії) у логах
                 logger.info(
-                    "Asset: %-10s | Price: %-9.4f | Signal: %-11s | RSI: %-5.2f | Hold: $%.2f",
-                    asset.symbol, signal.current_price, signal.signal_type.name, signal.rsi, position_value_usdt
+                    "Asset: %-10s | Price: %-9.4f | Signal: %-11s | Score: %-5.1f | RSI: %-5.2f | FGI: %-5.2f | Hold: $%.2f",
+                    asset.symbol, signal.current_price, signal.signal_type.name, signal.score, signal.rsi, signal.fgi,
+                    position_value_usdt
                 )
 
                 # 5. Order Execution Flow based on Signal
@@ -91,10 +92,10 @@ class MultiAssetTradingEngine:
                         logger.debug("Sell grid already active for %s.", asset.symbol)
 
                 elif signal.signal_type == SignalType.CANCEL_BUY:
-                    self._broker.cancel_asset_orders(asset)
+                    self._broker.cancel_asset_orders(asset, side="buy")
 
                 elif signal.signal_type == SignalType.CANCEL_SELL:
-                    self._broker.cancel_asset_orders(asset)
+                    self._broker.cancel_asset_orders(asset, side="sell")
 
             except ccxt.BaseError as e:
                 logger.error("Exchange error processing asset %s: %s", asset.symbol, e)
@@ -144,7 +145,11 @@ def main() -> None:
 
     # Composition Root з прокиданням нотифікатора
     data_feed = LiveMarketDataFeed(exchange)
-    strategy = MultiAssetGridStrategy()
+    # Було:
+    # strategy = MultiAssetGridStrategy()
+
+    strategy = build_default_strategy()
+
     portfolio = PortfolioManager()
     broker = CCXTExecutionBroker(exchange, notifier=notifier)
 

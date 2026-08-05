@@ -76,6 +76,7 @@ class TradingSignal:
     fgi: int
     current_price: float
     atr: float
+    score: float = 0.0
 
 
 @dataclass(frozen=True)

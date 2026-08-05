@@ -8,12 +8,12 @@ from core.entities import Asset, SignalType, TradingSignal
 class StrategyConfig:
     rsi_period: int = 14
     atr_period: int = 14
-    buy_threshold: float = 25.0
+    buy_threshold: float = 30.0
     sell_threshold: float = 70.0
-    fgi_buy_max: int = 40
-    fgi_sell_min: int = 60
-    cancel_buy_threshold: float = 60.0
-    cancel_sell_threshold: float = 40.0
+    fgi_buy_max: int = 45
+    fgi_sell_min: int = 55
+    cancel_buy_threshold: float = 55.0
+    cancel_sell_threshold: float = 45.0
 
 
 class MultiAssetGridStrategy:
